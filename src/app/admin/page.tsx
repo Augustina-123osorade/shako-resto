@@ -17,7 +17,6 @@ import { Plus, Star, Trash2 } from "lucide-react";
 import Image from "next/image";
 import type { OrderItem, CustomerDetails } from "@/lib/orders";
 
-
 interface Dish {
   id?: string;
   name: string;
@@ -26,17 +25,17 @@ interface Dish {
   favorite: boolean;
   imageUrl: string;
 }
+
 interface Order {
   id: string;
   userId: string | null;
-  items: OrderItem[]; // use your typed OrderItem
+  items: OrderItem[];
   totalAmount: number;
-  customer: CustomerDetails; // use your typed CustomerDetails
+  customer: CustomerDetails;
   paymentReference: string;
   status: string;
-  createdAt?: Date; // Firestore timestamp can be converted to Date
+  createdAt?: Date;
 }
-
 
 export default function AdminUpload() {
   const [file, setFile] = useState<File | null>(null);
@@ -48,7 +47,6 @@ export default function AdminUpload() {
   const [open, setOpen] = useState(false);
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
   const [editFile, setEditFile] = useState<File | null>(null);
-
   const [orders, setOrders] = useState<Order[]>([]);
 
   useEffect(() => {
@@ -69,11 +67,6 @@ export default function AdminUpload() {
     }
   };
 
-  // ✅ Load dishes from Firestore when page loads
-  useEffect(() => {
-    loadDishes();
-  }, []);
-
   const loadDishes = async () => {
     try {
       const fetchedDishes = await getAllDishes();
@@ -84,7 +77,6 @@ export default function AdminUpload() {
     }
   };
 
-  // ✅ Add new dish
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
@@ -92,10 +84,8 @@ export default function AdminUpload() {
     setLoading(true);
 
     try {
-      // Upload image to Cloudinary
       const imageUrl = await uploadImage(file);
 
-      // Create new dish object
       const newDish: Dish = {
         name: dishName,
         price,
@@ -104,13 +94,10 @@ export default function AdminUpload() {
         imageUrl,
       };
 
-      // Save to Firestore
       const savedDish = await addDish(newDish);
 
-      // Update local state
       setDishes((prev) => [...prev, savedDish]);
 
-      // Reset form
       setDishName("");
       setPrice("");
       setFile(null);
@@ -125,7 +112,6 @@ export default function AdminUpload() {
     }
   };
 
-  // ✅ Edit dish
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingDish || !editingDish.id) return;
@@ -135,7 +121,6 @@ export default function AdminUpload() {
     try {
       let imageUrl = editingDish.imageUrl;
 
-      // If new image is selected, upload to Cloudinary
       if (editFile) {
         imageUrl = await uploadImage(editFile);
       }
@@ -147,10 +132,8 @@ export default function AdminUpload() {
         imageUrl,
       };
 
-      // Update in Firestore
       await updateDish(editingDish.id, updatedData);
 
-      // Update local state
       setDishes((prev) =>
         prev.map((d) =>
           d.id === editingDish.id ? { ...d, ...updatedData } : d
@@ -169,7 +152,6 @@ export default function AdminUpload() {
     }
   };
 
-  // ✅ Toggle favorite
   const toggleFavorite = async (index: number) => {
     const dish = dishes[index];
     if (!dish.id) return;
@@ -177,10 +159,8 @@ export default function AdminUpload() {
     try {
       const newFavoriteStatus = !dish.favorite;
 
-      // Update in Firestore
       await updateDish(dish.id, { favorite: newFavoriteStatus });
 
-      // Update local state
       setDishes((prev) =>
         prev.map((d, i) =>
           i === index ? { ...d, favorite: newFavoriteStatus } : d
@@ -192,7 +172,6 @@ export default function AdminUpload() {
     }
   };
 
-  // ✅ Delete dish
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this dish?")) return;
 
@@ -210,19 +189,14 @@ export default function AdminUpload() {
     <div>
       <Navbar />
       <div className="p-4 max-w-6xl mx-auto">
-        {/* ✅ Add (+) Button */}
         <div className="flex flex-col gap-5 items-center mb-6">
           <h1 className="text-2xl font-bold">Welcome to Admin Page</h1>
           <p className="text-gray-600">Upload Your Images</p>
-          <Button
-            onClick={() => setOpen(true)}
-            className="flex items-center gap-2"
-          >
+          <Button onClick={() => setOpen(true)} className="flex items-center gap-2">
             <Plus size={18} /> Add Dish
           </Button>
         </div>
 
-        {/* ✅ Modal for Upload Form */}
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
@@ -266,73 +240,19 @@ export default function AdminUpload() {
           </DialogContent>
         </Dialog>
 
-        {/* ✅ Edit Dish Modal */}
-        {editingDish && (
-          <Dialog open={true} onOpenChange={() => setEditingDish(null)}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Edit Dish</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleEdit} className="space-y-4">
-                <input
-                  type="text"
-                  value={editingDish.name}
-                  onChange={(e) =>
-                    setEditingDish({ ...editingDish, name: e.target.value })
-                  }
-                  className="border p-2 w-full rounded"
-                  required
-                />
-                <input
-                  type="number"
-                  value={editingDish.price}
-                  onChange={(e) =>
-                    setEditingDish({ ...editingDish, price: e.target.value })
-                  }
-                  className="border p-2 w-full rounded"
-                  required
-                />
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={editingDish.inStock}
-                    onChange={(e) =>
-                      setEditingDish({
-                        ...editingDish,
-                        inStock: e.target.checked,
-                      })
-                    }
-                  />
-                  <span>In Stock</span>
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setEditFile(e.target.files?.[0] || null)}
-                />
-                <p className="text-sm text-gray-500">
-                  Leave empty to keep current image
-                </p>
-                <Button type="submit" disabled={loading} className="w-full">
-                  {loading ? "Saving..." : "Update Dish"}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
-
-        {/* ✅ Display Uploaded Dishes */}
+        {/* Dish List */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {dishes.map((dish, index) => (
             <div
               key={dish.id}
               className="border rounded-lg p-4 shadow-md flex flex-col items-center relative"
             >
-              {/* Image + Favorite toggle overlay */}
               <div className="relative w-full h-40 flex justify-center">
                 <Image
                   src={dish.imageUrl}
                   alt={dish.name}
+                  width={160}
+                  height={160}
                   className="h-40 w-40 object-cover rounded-md"
                 />
                 <button
@@ -379,6 +299,8 @@ export default function AdminUpload() {
             </div>
           ))}
         </div>
+
+        {/* Orders */}
         <div className="mt-10 mb-10">
           <h2 className="text-xl font-semibold mb-3">Recent Orders</h2>
 
@@ -399,9 +321,7 @@ export default function AdminUpload() {
                     <td className="p-2">{order.customer?.name}</td>
                     <td className="p-2">{order.customer?.number}</td>
                     <td className="p-2 font-bold">GH₵{order.totalAmount}</td>
-                    <td className="p-2 capitalize text-blue-600">
-                      {order.status}
-                    </td>
+                    <td className="p-2 capitalize text-blue-600">{order.status}</td>
                     <td className="p-2 text-xs">{order.paymentReference}</td>
                   </tr>
                 ))}
