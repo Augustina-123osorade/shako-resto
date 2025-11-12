@@ -15,6 +15,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Plus, Star, Trash2 } from "lucide-react";
 import Image from "next/image";
+import imageCompression from "browser-image-compression";
+
 
 interface Dish {
   id?: string;
@@ -24,6 +26,7 @@ interface Dish {
   favorite: boolean;
   imageUrl: string;
 }
+
 interface Order {
   id: string;
   userId: string | null;
@@ -51,7 +54,6 @@ export default function AdminUpload() {
   const [open, setOpen] = useState(false);
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
   const [editFile, setEditFile] = useState<File | null>(null);
-
   const [orders, setOrders] = useState<Order[]>([]);
 
   useEffect(() => {
@@ -72,11 +74,7 @@ export default function AdminUpload() {
     }
   };
 
-  // ✅ Load dishes from Firestore when page loads
-  useEffect(() => {
-    loadDishes();
-  }, []);
-
+  // ✅ Load dishes from Firestore
   const loadDishes = async () => {
     try {
       const fetchedDishes = await getAllDishes();
@@ -91,12 +89,22 @@ export default function AdminUpload() {
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
-
     setLoading(true);
+    if (file.size > 10 * 1024 * 1024) { // 10MB
+  alert("File is too large! Please upload an image smaller than 10MB.");
+  return;
+}
 
     try {
       // Upload image to Cloudinary
-      const imageUrl = await uploadImage(file);
+      const compressedFile = await imageCompression(file, {
+      maxSizeMB: 1, // target max size (1MB)
+      maxWidthOrHeight: 1024, // resize large images down
+      useWebWorker: true, // faster & non-blocking
+    });
+
+    // ✅ Step 2: Upload compressed image instead
+    const imageUrl = await uploadImage(compressedFile);
 
       // Create new dish object
       const newDish: Dish = {
@@ -132,7 +140,6 @@ export default function AdminUpload() {
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingDish || !editingDish.id) return;
-
     setLoading(true);
 
     try {
@@ -162,7 +169,6 @@ export default function AdminUpload() {
 
       setEditingDish(null);
       setEditFile(null);
-
       alert("Dish updated successfully!");
     } catch (error) {
       console.error("❌ Edit failed:", error);
@@ -212,6 +218,7 @@ export default function AdminUpload() {
   return (
     <div>
       <Navbar />
+
       <div className="p-4 max-w-6xl mx-auto">
         {/* ✅ Add (+) Button */}
         <div className="flex flex-col gap-5 items-center mb-6">
@@ -231,6 +238,7 @@ export default function AdminUpload() {
             <DialogHeader>
               <DialogTitle>Add New Dish</DialogTitle>
             </DialogHeader>
+
             <form onSubmit={handleUpload} className="space-y-4">
               <input
                 type="text"
@@ -240,6 +248,7 @@ export default function AdminUpload() {
                 className="border p-2 w-full rounded"
                 required
               />
+
               <input
                 type="number"
                 placeholder="Price"
@@ -248,6 +257,7 @@ export default function AdminUpload() {
                 className="border p-2 w-full rounded"
                 required
               />
+
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
@@ -256,12 +266,14 @@ export default function AdminUpload() {
                 />
                 <span>In Stock</span>
               </label>
+
               <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
                 required
               />
+
               <Button type="submit" disabled={loading} className="w-full">
                 {loading ? "Uploading..." : "Save Dish"}
               </Button>
@@ -276,6 +288,7 @@ export default function AdminUpload() {
               <DialogHeader>
                 <DialogTitle>Edit Dish</DialogTitle>
               </DialogHeader>
+
               <form onSubmit={handleEdit} className="space-y-4">
                 <input
                   type="text"
@@ -286,6 +299,7 @@ export default function AdminUpload() {
                   className="border p-2 w-full rounded"
                   required
                 />
+
                 <input
                   type="number"
                   value={editingDish.price}
@@ -295,6 +309,7 @@ export default function AdminUpload() {
                   className="border p-2 w-full rounded"
                   required
                 />
+
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -308,6 +323,7 @@ export default function AdminUpload() {
                   />
                   <span>In Stock</span>
                 </label>
+
                 <input
                   type="file"
                   accept="image/*"
@@ -316,6 +332,7 @@ export default function AdminUpload() {
                 <p className="text-sm text-gray-500">
                   Leave empty to keep current image
                 </p>
+
                 <Button type="submit" disabled={loading} className="w-full">
                   {loading ? "Saving..." : "Update Dish"}
                 </Button>
@@ -336,7 +353,10 @@ export default function AdminUpload() {
                 <Image
                   src={dish.imageUrl}
                   alt={dish.name}
+                  width={160}
+                  height={160}
                   className="h-40 w-40 object-cover rounded-md"
+                  priority
                 />
                 <button
                   onClick={() => toggleFavorite(index)}
@@ -371,6 +391,7 @@ export default function AdminUpload() {
                 >
                   Edit
                 </Button>
+
                 <Button
                   onClick={() => dish.id && handleDelete(dish.id)}
                   variant="destructive"
@@ -382,9 +403,9 @@ export default function AdminUpload() {
             </div>
           ))}
         </div>
+
         <div className="mt-10 mb-10">
           <h2 className="text-xl font-semibold mb-3">Recent Orders</h2>
-
           <div className="overflow-x-auto border rounded-lg">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-200">
